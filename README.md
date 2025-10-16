@@ -22,7 +22,7 @@ cargo install --path .
 or build from source:
 
 ```bash
-git clone https://github.com/yourusername/screen-locker.git
+git clone https://github.com/louis030195/screen-locker.git
 cd screen-locker
 cargo build --release
 ```
