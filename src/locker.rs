@@ -67,18 +67,27 @@ pub fn show_lock_screen() -> Result<()> {
         let _: () = msg_send![label, setFont: font];
         let _: () = msg_send![content_view, addSubview: label];
 
-        let secure_field: id = msg_send![class!(NSSecureTextField), alloc];
+        let secure_field: id = msg_send![class!(NSTextField), alloc];
         let field_frame = NSRect::new(
             NSPoint::new(screen_frame.size.width / 2.0 - 150.0, screen_frame.size.height / 2.0),
-            NSSize::new(300.0, 30.0),
+            NSSize::new(300.0, 35.0),
         );
         let _: id = msg_send![secure_field, initWithFrame: field_frame];
-        let placeholder = NSString::alloc(nil).init_str("Enter PIN");
+        let placeholder = NSString::alloc(nil).init_str("Enter PIN (numbers only)");
         let _: () = msg_send![secure_field, setPlaceholderString: placeholder];
         let _: () = msg_send![secure_field, setBezeled: YES];
+        let _: () = msg_send![secure_field, setBezelStyle: 1i64];
         let _: () = msg_send![secure_field, setDrawsBackground: YES];
+        let _: () = msg_send![secure_field, setEditable: YES];
+        let _: () = msg_send![secure_field, setSelectable: YES];
+
+        let bg_color: id = msg_send![class!(NSColor), whiteColor];
+        let _: () = msg_send![secure_field, setBackgroundColor: bg_color];
+        let text_color: id = msg_send![class!(NSColor), blackColor];
+        let _: () = msg_send![secure_field, setTextColor: text_color];
+
         let _: () = msg_send![content_view, addSubview: secure_field];
-        let _: () = msg_send![window, makeFirstResponder: secure_field];
+        let _: () = msg_send![secure_field, becomeFirstResponder];
 
         let button: id = msg_send![class!(NSButton), alloc];
         let button_frame = NSRect::new(
@@ -105,6 +114,11 @@ pub fn show_lock_screen() -> Result<()> {
         let _: () = msg_send![app, activateIgnoringOtherApps: YES];
         let _: () = msg_send![window, makeKeyAndOrderFront: nil];
         let _: () = msg_send![window, makeFirstResponder: secure_field];
+
+        // Force window to become key
+        let _: () = msg_send![window, becomeKeyWindow];
+        let _: () = msg_send![window, becomeMainWindow];
+        let _: () = msg_send![secure_field, selectText: nil];
 
         app.run();
     }

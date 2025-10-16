@@ -84,16 +84,35 @@ fn main() -> Result<()> {
             use std::process::Command;
 
             let manager = GlobalHotKeyManager::new().context("Failed to create hotkey manager - may need Accessibility permissions")?;
-            let hotkey = HotKey::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyL);
 
-            match manager.register(hotkey) {
-                Ok(_) => println!("✓ Hotkey registered successfully"),
-                Err(e) => {
-                    println!("✗ Failed to register hotkey: {}", e);
-                    println!("  Grant Accessibility permissions and try again");
-                    return Err(e.into());
+            // Try Cmd+Shift+L first, fallback to Cmd+Option+L
+            let hotkey = HotKey::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyL);
+            let registered_hotkey = match manager.register(hotkey) {
+                Ok(_) => {
+                    println!("✓ Hotkey registered: Cmd+Shift+L");
+                    hotkey
                 }
-            }
+                Err(_) => {
+                    // Fallback to Cmd+Option+L
+                    let alt_hotkey = HotKey::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyL);
+                    match manager.register(alt_hotkey) {
+                        Ok(_) => {
+                            println!("✓ Hotkey registered: Cmd+Option+L (fallback)");
+                            alt_hotkey
+                        }
+                        Err(e) => {
+                            println!("✗ Failed to register hotkey: {}", e);
+                            println!("\nTroubleshooting:");
+                            println!("1. Grant Accessibility permissions:");
+                            println!("   System Settings → Privacy & Security → Accessibility");
+                            println!("2. Add Terminal.app (or your terminal) to allowed apps");
+                            println!("3. Restart terminal and try again");
+                            println!("\nNote: Some apps may conflict with global hotkeys");
+                            return Err(e.into());
+                        }
+                    }
+                }
+            };
 
             let running = Arc::new(AtomicBool::new(true));
             let r = Arc::clone(&running);
@@ -127,7 +146,7 @@ fn main() -> Result<()> {
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
 
-            manager.unregister(hotkey)?;
+            manager.unregister(registered_hotkey)?;
             println!("\nDaemon stopped");
         }
         Commands::Status => {
