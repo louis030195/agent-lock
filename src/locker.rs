@@ -8,7 +8,8 @@ pub fn show_lock_screen() -> Result<()> {
     };
     use cocoa::base::{id, nil, NO, YES};
     use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
-    use objc::runtime::Object;
+    use objc::declare::ClassDecl;
+    use objc::runtime::{Class, Object, Sel};
     use objc::{class, msg_send, sel, sel_impl};
     use std::sync::{Arc, Mutex};
 
@@ -25,20 +26,25 @@ pub fn show_lock_screen() -> Result<()> {
         let screen = NSScreen::mainScreen(nil);
         let screen_frame: NSRect = msg_send![screen, frame];
 
+        let window_class = create_window_class();
         let style_mask = NSWindowStyleMask::NSBorderlessWindowMask;
 
-        let window: id = NSWindow::alloc(nil).initWithContentRect_styleMask_backing_defer_(
-            screen_frame,
-            style_mask,
-            NSBackingStoreBuffered,
-            NO,
-        );
+        let window: id = msg_send![window_class, alloc];
+        let window: id = msg_send![
+            window,
+            initWithContentRect: screen_frame
+            styleMask: style_mask
+            backing: NSBackingStoreBuffered
+            defer: NO
+        ];
 
         let _: () = msg_send![window, setLevel: 1000i32];
         let black_color: id = msg_send![class!(NSColor), blackColor];
         let _: () = msg_send![window, setBackgroundColor: black_color];
-        let _: () = msg_send![window, makeKeyAndOrderFront: nil];
         let _: () = msg_send![window, setCollectionBehavior: 1 << 10];
+        let _: () = msg_send![window, setAcceptsMouseMovedEvents: YES];
+        let _: () = msg_send![window, makeKeyAndOrderFront: nil];
+        let _: () = msg_send![window, orderFrontRegardless];
 
         let content_view: id = msg_send![window, contentView];
 
@@ -69,6 +75,8 @@ pub fn show_lock_screen() -> Result<()> {
         let _: id = msg_send![secure_field, initWithFrame: field_frame];
         let placeholder = NSString::alloc(nil).init_str("Enter PIN");
         let _: () = msg_send![secure_field, setPlaceholderString: placeholder];
+        let _: () = msg_send![secure_field, setBezeled: YES];
+        let _: () = msg_send![secure_field, setDrawsBackground: YES];
         let _: () = msg_send![content_view, addSubview: secure_field];
         let _: () = msg_send![window, makeFirstResponder: secure_field];
 
@@ -92,8 +100,12 @@ pub fn show_lock_screen() -> Result<()> {
         let target = create_target(state);
         let _: () = msg_send![button, setTarget: target];
         let _: () = msg_send![button, setAction: sel!(handleUnlock:)];
+        let _: () = msg_send![button, setKeyEquivalent: NSString::alloc(nil).init_str("\r")];
 
         let _: () = msg_send![app, activateIgnoringOtherApps: YES];
+        let _: () = msg_send![window, makeKeyAndOrderFront: nil];
+        let _: () = msg_send![window, makeFirstResponder: secure_field];
+
         app.run();
     }
 
@@ -105,6 +117,36 @@ struct UnlockState {
     window: cocoa::base::id,
     secure_field: cocoa::base::id,
     app: cocoa::base::id,
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn create_window_class() -> *const objc::runtime::Class {
+    use objc::declare::ClassDecl;
+    use objc::runtime::{Class, Object, Sel, BOOL};
+    use objc::{class, msg_send, sel, sel_impl};
+
+    let superclass = class!(NSWindow);
+    let mut decl = ClassDecl::new("LockWindow", superclass).unwrap();
+
+    extern "C" fn can_become_key(_this: &Object, _cmd: Sel) -> BOOL {
+        cocoa::base::YES
+    }
+
+    extern "C" fn can_become_main(_this: &Object, _cmd: Sel) -> BOOL {
+        cocoa::base::YES
+    }
+
+    decl.add_method(
+        sel!(canBecomeKeyWindow),
+        can_become_key as extern "C" fn(&Object, Sel) -> BOOL,
+    );
+
+    decl.add_method(
+        sel!(canBecomeMainWindow),
+        can_become_main as extern "C" fn(&Object, Sel) -> BOOL,
+    );
+
+    decl.register()
 }
 
 #[cfg(target_os = "macos")]

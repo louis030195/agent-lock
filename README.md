@@ -41,7 +41,7 @@ first time setup:
 agent-lock setup
 ```
 
-enter 4-8 digit PIN
+enter 4-8 digit PIN (stored as SHA-256 hash)
 
 ### lock immediately
 
@@ -49,7 +49,10 @@ enter 4-8 digit PIN
 agent-lock lock
 ```
 
-shows fullscreen black overlay with PIN input - enter your PIN to unlock
+shows fullscreen black overlay with PIN input field
+- white input box appears in center
+- type your PIN and press Enter or click Unlock
+- cannot Ctrl+C out while locked
 
 ### daemon mode (recommended)
 
@@ -58,6 +61,10 @@ agent-lock daemon
 ```
 
 runs in background - press **Cmd+Shift+L** to lock screen anytime
+
+**first time setup**: grant Accessibility permissions when prompted
+- System Settings → Privacy & Security → Accessibility
+- add Terminal (or your terminal app) to allowed apps
 
 tip: add to startup items for always-available locking
 
