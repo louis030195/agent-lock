@@ -1,17 +1,19 @@
-# screen-locker
+# agent-lock
 
-cross-platform CLI tool to lock your screen with a PIN while keeping apps running and preventing sleep
+lock your screen with a PIN while keeping AI agents and background processes running
 
-perfect for AI agents, long-running processes, and background tasks that need to continue while you're away
+**the problem**: macOS/Windows screen locks stop background processes, kill SSH connections, and interrupt long-running tasks
+
+**the solution**: fullscreen GUI overlay that blocks interaction but keeps everything running in the background
 
 ## features
 
-- PIN-based authentication (4-8 digits)
-- keeps all applications running in background
-- prevents system sleep/screen saver
-- works on macOS and Windows
-- terminal-based locking
-- zero dependencies on system GUI
+- fullscreen black overlay with PIN unlock
+- global hotkey (Cmd+Shift+L on macOS)
+- prevents system sleep while locked
+- keeps all apps running (AI agents, downloads, compilations, servers)
+- works on macOS (Windows coming soon)
+- lightweight daemon mode
 
 ## installation
 
@@ -22,12 +24,12 @@ cargo install --path .
 or build from source:
 
 ```bash
-git clone https://github.com/louis030195/screen-locker.git
-cd screen-locker
+git clone https://github.com/louis030195/agent-lock.git
+cd agent-lock
 cargo build --release
 ```
 
-binary will be at `target/release/screen-locker`
+binary will be at `target/release/agent-lock`
 
 ## usage
 
@@ -36,86 +38,105 @@ binary will be at `target/release/screen-locker`
 first time setup:
 
 ```bash
-screen-locker setup
+agent-lock setup
 ```
 
-follow prompts to set 4-8 digit PIN
+enter 4-8 digit PIN
 
-### lock screen
+### lock immediately
 
 ```bash
-screen-locker lock
+agent-lock lock
 ```
 
-this will:
-- lock your terminal with PIN prompt
-- keep all apps running
-- prevent system sleep
-- prevent screen saver
+shows fullscreen black overlay with PIN input - enter your PIN to unlock
 
-enter your PIN to unlock
+### daemon mode (recommended)
+
+```bash
+agent-lock daemon
+```
+
+runs in background - press **Cmd+Shift+L** to lock screen anytime
+
+tip: add to startup items for always-available locking
 
 ### check status
 
 ```bash
-screen-locker status
+agent-lock status
 ```
 
-shows whether PIN is configured and ready to lock
+shows PIN config status and usage instructions
 
 ## how it works
 
+### fullscreen overlay
+
+creates a native GUI window that:
+- covers entire screen at highest window level
+- captures all keyboard/mouse input
+- shows only PIN entry field
+- unlocks when correct PIN entered
+
 ### sleep prevention
 
-- **macOS**: uses `caffeinate` to prevent system sleep
+- **macOS**: uses `caffeinate` command
 - **Windows**: uses `SetThreadExecutionState` API
-
-### locking mechanism
-
-uses terminal-based locking that:
-- blocks terminal input/output until correct PIN entered
-- runs in foreground keeping all background processes active
-- no GUI dependencies - works over SSH/remote sessions
 
 ### security
 
 - PIN hashed with SHA-256
-- config stored in user config directory (`~/.config/screen-locker/auth.json` on macOS)
-- unlimited unlock attempts (for personal use - modify if needed for stricter security)
+- config stored at `~/.config/screen-locker/auth.json`
+- unlimited unlock attempts (personal use - for stricter security, modify source)
 
 ## use cases
 
-- running AI agents that need uninterrupted execution
-- long compilations or data processing
-- downloads or uploads
-- server processes on workstation
-- any task that can't be interrupted by sleep/screen lock
+- **AI agents**: autonomous agents that run for hours/days
+- **long compilations**: rust, c++, large codebases
+- **data processing**: ETL pipelines, ML training
+- **downloads/uploads**: large files, backups
+- **server processes**: local dev servers, databases
+- **SSH sessions**: keep connections alive
+- **screen sharing**: lock screen without disconnecting remote viewers
+
+## why not use built-in screen lock?
+
+macOS/Windows screen locks:
+- interrupt background processes
+- disconnect SSH sessions
+- pause some applications
+- can't customize unlock mechanism
+- no global hotkey support
+
+agent-lock:
+- guarantees all processes keep running
+- maintains all network connections
+- simple PIN unlock
+- customizable hotkey
+- designed for developers running background tasks
 
 ## configuration
 
-config file location:
-- **macOS**: `~/.config/screen-locker/auth.json`
-- **Windows**: `%APPDATA%\screen-locker\auth.json`
+config file: `~/.config/screen-locker/auth.json` (macOS)
+
+contains SHA-256 hash of your PIN
 
 ## development
 
-run tests:
-
 ```bash
 cargo test
-```
-
-build for release:
-
-```bash
 cargo build --release
 ```
 
-## platform support
+## roadmap
 
-- ✅ macOS (tested on 10.15+)
-- ✅ Windows (10+)
-- ⚠️  Linux (untested - should work with modifications to sleep prevention)
+- [ ] Windows implementation
+- [ ] Linux support
+- [ ] custom hotkey configuration
+- [ ] rate limiting for failed attempts
+- [ ] automatic lock on idle
+- [ ] multiple monitor support
 
 ## license
 
@@ -123,12 +144,4 @@ MIT
 
 ## author
 
-Louis Beaumont
-
-## contributing
-
-PRs welcome for:
-- Linux support
-- additional security features
-- GUI overlay option
-- automatic lock on idle
+[Louis Beaumont](https://github.com/louis030195)

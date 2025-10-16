@@ -5,12 +5,10 @@ mod sleep_prevention;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use sleep_prevention::SleepPreventer;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 #[derive(Parser)]
-#[command(name = "screen-locker")]
-#[command(about = "Lock your screen while keeping apps running and preventing sleep", long_about = None)]
+#[command(name = "agent-lock")]
+#[command(about = "Lock screen with PIN while keeping AI agents and background apps running", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -20,6 +18,7 @@ struct Cli {
 enum Commands {
     Setup,
     Lock,
+    Daemon,
     Status,
 }
 
@@ -32,16 +31,37 @@ fn main() -> Result<()> {
         }
         Commands::Lock => {
             if !config_exists()? {
-                println!("No PIN configured. Run 'screen-locker setup' first.");
+                println!("No PIN configured. Run 'agent-lock setup' first.");
                 return Ok(());
             }
 
             println!("Starting screen lock...");
-            println!("Sleep prevention: enabled");
-            println!("Background apps: will continue running");
 
             let mut sleep_preventer = SleepPreventer::new();
             sleep_preventer.start()?;
+
+            locker::show_lock_screen()?;
+
+            sleep_preventer.stop();
+            println!("Screen unlocked. Sleep prevention disabled.");
+        }
+        Commands::Daemon => {
+            if !config_exists()? {
+                println!("No PIN configured. Run 'agent-lock setup' first.");
+                return Ok(());
+            }
+
+            println!("Starting agent-lock daemon...");
+            println!("Press Cmd+Shift+L to lock screen");
+            println!("Press Ctrl+C to quit daemon");
+
+            use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, Modifiers, HotKey}};
+            use std::sync::atomic::{AtomicBool, Ordering};
+            use std::sync::Arc;
+
+            let manager = GlobalHotKeyManager::new().context("Failed to create hotkey manager")?;
+            let hotkey = HotKey::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyL);
+            manager.register(hotkey).context("Failed to register hotkey")?;
 
             let running = Arc::new(AtomicBool::new(true));
             let r = Arc::clone(&running);
@@ -51,24 +71,37 @@ fn main() -> Result<()> {
             })
             .context("Error setting Ctrl-C handler")?;
 
-            println!("\n🔒 Screen locked. Enter your PIN to unlock.\n");
+            let receiver = GlobalHotKeyEvent::receiver();
 
             while running.load(Ordering::SeqCst) {
-                if locker::prompt_for_unlock()? {
-                    break;
+                if let Ok(_event) = receiver.try_recv() {
+                    println!("Hotkey triggered - locking screen...");
+                    let mut sleep_preventer = SleepPreventer::new();
+                    sleep_preventer.start()?;
+
+                    if let Err(e) = locker::show_lock_screen() {
+                        eprintln!("Error showing lock screen: {}", e);
+                    }
+
+                    sleep_preventer.stop();
+                    println!("Screen unlocked");
                 }
+                std::thread::sleep(std::time::Duration::from_millis(100));
             }
 
-            sleep_preventer.stop();
-            println!("\n✓ Screen unlocked. Sleep prevention disabled.");
+            manager.unregister(hotkey)?;
+            println!("\nDaemon stopped");
         }
         Commands::Status => {
             if config_exists()? {
                 println!("✓ PIN is configured");
                 println!("✓ Ready to lock screen");
+                println!("\nUsage:");
+                println!("  agent-lock lock        - Lock screen immediately");
+                println!("  agent-lock daemon      - Run in background (Cmd+Shift+L to lock)");
             } else {
                 println!("✗ No PIN configured");
-                println!("Run 'screen-locker setup' to configure a PIN");
+                println!("Run 'agent-lock setup' to configure a PIN");
             }
         }
     }
